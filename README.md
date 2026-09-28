@@ -15,6 +15,8 @@
 
 项目配置对应 ESP32-S3 N16R8（16 MB Flash、8 MB OPI PSRAM），使用 ULN2003 驱动板和 5 V 版本的 28BYJ-48 步进电机。
 
+**供电说明：需将开发板上的 IN-OUT 短接，确保能输出 5 V 电压。**
+
 ### 电机驱动板接线
 
 断电后，按照下表连接：
@@ -198,14 +200,45 @@ motor status
 
 检查 Wi-Fi 配置文件中的名称和密码是否正确，以及是否已重新烧录。通过串口输入 `wifi` 查看连接状态，必要时输入 `reconnect` 重连。网页应使用串口打印的实际 IP 地址，手机或电脑需与开发板处于可互相访问的局域网。
 
-## 项目文件
+## 项目分层
 
-| 文件 | 作用 |
-| --- | --- |
-| `platformio.ini` | 开发板、框架、存储配置和串口设置 |
-| `src/main.cpp` | Wi-Fi 连接、HTTP 服务、串口命令及主循环 |
-| `include/stepper_motor.h` | 电机控制类声明与参数范围 |
-| `src/stepper_motor.cpp` | 电机驱动时序、步数、方向和转速控制 |
-| `include/web_page.h` | 网页资源声明 |
-| `src/web_page.cpp` | 中文控制网页及交互逻辑 |
-| `include/wifi_credentials.h` | 本地 Wi-Fi 配置，不提交到 Git |
+网页通过 HTTP 接口控制电机，电机模块只负责运动状态和 GPIO 驱动，不依赖网页、HTTP 或 Wi-Fi。HTTP 服务和串口命令使用 `main.cpp` 创建的同一个 `StepperMotor` 实例，通过其公开方法控制电机。
+
+```text
+web/                        网页端，通过 /api/* 与固件通信
+├── index.html              页面结构
+├── style.css               页面样式
+└── app.js                  状态刷新、按钮交互和 HTTP 请求
+src/
+├── main.cpp                创建模块、初始化和循环调度
+├── web/web_server.cpp      静态资源路由、HTTP 参数处理和 JSON 响应
+├── motor/stepper_motor.cpp  半步驱动、运动状态、方向和转速
+├── network/wifi_manager.cpp Wi-Fi 连接、重连和网络信息
+└── console/serial_shell.cpp 串口输入和命令解析
+include/
+├── config/board_config.h   电机引脚和串口波特率
+├── web/web_server.h        HTTP 服务接口
+├── motor/stepper_motor.h   电机控制接口与参数范围
+├── network/wifi_manager.h  网络管理接口
+├── console/serial_shell.h  串口命令接口
+└── wifi_credentials.h      本地 Wi-Fi 配置，不提交到 Git
+```
+
+调用关系：
+
+```text
+网页 HTML/CSS/JS ──HTTP──> MotorWebServer ──> StepperMotor ──> GPIO
+                              │                  ↑
+                          Wi-Fi 状态        SerialShell
+                                                 │
+                                            Wi-Fi 管理
+```
+
+- 修改页面布局、样式或交互：编辑 `web/` 下的文件。
+- 修改 HTTP 路由、请求参数或返回数据：编辑 `src/web/web_server.cpp`。
+- 修改电机动作或驱动时序：编辑 `src/motor/stepper_motor.cpp`；修改引脚：编辑 `include/config/board_config.h`。
+- 修改串口命令：编辑 `src/console/serial_shell.cpp`。
+
+`platformio.ini` 使用 `board_build.embed_txtfiles` 将三个网页文件打包进固件，由 HTTP 服务提供 `/`、`/style.css` 和 `/app.js`。不需要额外上传文件系统；修改网页后仍需执行 `pio run` 并烧录固件，设备才能提供更新后的页面。
+
+此次分层保持原有 HTTP 接口、串口命令和电机驱动行为。各模块仍在同一个 `loop()` 中依次运行，没有引入并行任务；串口 `reconnect` 仍会同步等待 Wi-Fi 连接。

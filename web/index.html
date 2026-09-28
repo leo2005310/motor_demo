@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>步进电机控制</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <h1>步进电机控制</h1>
+
+    <div id="connection" class="status">
+      <span class="dot"></span>
+      <span id="state">正在连接设备……</span>
+    </div>
+
+    <ul class="info">
+      <li>Wi-Fi：<b id="ssid">--</b></li>
+      <li>IP 地址：<b id="ip">--</b></li>
+      <li>信号强度：<b><span id="rssi">--</span> dBm</b></li>
+      <li>当前设定转速：<b><span id="current-rpm">--</span> RPM</b></li>
+    </ul>
+
+    <form id="speed-form" class="speed-settings">
+      <label for="rpm">转速（RPM，转/分钟）</label>
+      <div class="speed-row">
+        <input id="rpm" name="rpm" type="number" min="1" max="15" step="0.1"
+               required inputmode="decimal" aria-describedby="speed-hint">
+        <button id="set-speed" type="submit">设置转速</button>
+      </div>
+      <p id="speed-hint" class="hint">范围 1～15，支持一位小数。设置后立即生效；待机时不会启动电机。</p>
+    </form>
+
+    <div class="controls">
+      <button type="button" onclick="controlMotor(-4096)">反转一圈</button>
+      <button type="button" onclick="controlMotor(4096)">正转一圈</button>
+      <button type="button" class="stop" onclick="stopMotor()">停止</button>
+    </div>
+
+    <p id="message" aria-live="polite"></p>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
